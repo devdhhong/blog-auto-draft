@@ -204,7 +204,8 @@ a{color:var(--ac)}
   <div id="setupBox">
    <p class="mut" style="margin-top:0">프리셋·계정 정보를 저장할 <b>구글 드라이브 폴더</b>를 정해주세요. 윈도우와 맥에서 같은 폴더를 고르면 자동으로 동기화돼요.</p>
    <div class="field"><div>동기화 폴더</div><select id="candSel" style="max-width:none;width:100%"></select>
-    <input type="text" id="syncDir" placeholder="예: G:\내 드라이브\NaverBlogHelper" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="text" id="syncDir" placeholder="폴더 경로 (웹 주소 아님)" style="flex:1"><button class="g" id="pickFolder" type="button" style="white-space:nowrap">폴더 선택</button></div>
+    <p class="mut" id="noDriveHelp" style="display:none;color:var(--err)">이 컴퓨터에서 구글 드라이브 폴더를 찾지 못했어요. <a href="https://www.google.com/drive/download/" target="_blank">구글 드라이브 데스크톱 앱</a>을 설치하고 로그인하면 '내 드라이브' 폴더가 생겨요. 설치 후 [폴더 선택]으로 그 폴더를 골라 주세요. (drive.google.com 웹 주소는 쓸 수 없어요)</p></div>
   </div>
   <div class="field"><div id="masterLabel">동기화 비밀번호</div><input type="password" id="master" autocomplete="new-password">
    <p class="mut" id="masterHelp">계정 비밀번호와 API 키를 암호화하는 비밀번호예요. 다른 컴퓨터에서도 이 비밀번호를 한 번 입력해야 해요. 잊어버리면 복구할 수 없어요.</p></div>

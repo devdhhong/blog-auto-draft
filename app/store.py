@@ -89,7 +89,10 @@ class Store:
 
     @property
     def sync_dir(self) -> str | None:
-        return self.local.get("syncDir")
+        d = self.local.get("syncDir")
+        if d and ("://" in d or "https:" in d or "http:" in d):
+            return None
+        return d
 
     @property
     def path(self) -> str | None:
@@ -154,7 +157,7 @@ class Store:
     def setup(self, sync_dir: str, master: str, remember: bool) -> dict:
         """동기화 폴더 지정. 파일이 있으면 잠금해제, 없으면 새로 만든다."""
         with self.lock:
-            sync_dir = os.path.abspath(os.path.expanduser(sync_dir.strip()))
+            sync_dir = self.check_folder(sync_dir)
             self.local["syncDir"] = sync_dir
             self._write_local()
             if os.path.exists(self.path):
@@ -171,6 +174,31 @@ class Store:
             if remember:
                 secret.remember(master)
             return self.status()
+
+    @staticmethod
+    def check_folder(raw: str) -> str:
+        """입력한 동기화 폴더가 '컴퓨터 안의 폴더'인지 확인하고, 필요하면 NaverBlogHelper 하위 폴더를 붙인다."""
+        raw = (raw or "").strip().strip('"').strip("'")
+        if not raw:
+            raise ValueError("동기화 폴더를 정해 주세요.")
+        if "://" in raw or raw.lower().startswith(("http", "www.", "drive.google")):
+            raise ValueError("구글 드라이브 웹 주소가 아니라, 내 컴퓨터 안의 구글 드라이브 폴더가 필요해요. "
+                             "구글 드라이브 데스크톱 앱을 설치하면 생기는 '내 드라이브' 폴더를 [폴더 선택]으로 골라 주세요.")
+        path = os.path.abspath(os.path.expanduser(raw))
+        if os.path.basename(path.rstrip("/\\")) != SYNC_FOLDER_NAME and not os.path.exists(os.path.join(path, DATA_FILE)):
+            path = os.path.join(path, SYNC_FOLDER_NAME)
+        parent = os.path.dirname(path)
+        if not os.path.isdir(path) and not os.path.isdir(parent):
+            raise ValueError(f"폴더를 찾을 수 없어요: {parent}")
+        try:
+            os.makedirs(path, exist_ok=True)
+            test = os.path.join(path, ".write_test")
+            with open(test, "w") as fp:
+                fp.write("ok")
+            os.remove(test)
+        except OSError as e:
+            raise ValueError(f"이 폴더에 저장할 수 없어요 ({e.strerror}): {path}")
+        return path
 
     def unlock(self, master: str, remember: bool) -> dict:
         with self.lock:

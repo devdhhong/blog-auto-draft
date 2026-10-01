@@ -384,6 +384,7 @@ function showLock(s){
   (s.candidates||[]).forEach(function(c){var o=document.createElement("option");o.value=o.textContent=c;sel.appendChild(o)});
   var o=document.createElement("option");o.value="";o.textContent=(s.candidates||[]).length?"직접 입력":"구글 드라이브를 찾지 못했어요 — 아래에 직접 입력";sel.appendChild(o);
   $("syncDir").value=s.syncDir||(s.candidates||[])[0]||"";
+  $("noDriveHelp").style.display=(s.candidates||[]).length?"none":"block";
   sel.onchange=function(){if(sel.value)$("syncDir").value=sel.value};
   $("syncChip").textContent="잠김";$("syncChip").classList.remove("ok");
   setTimeout(function(){$("master").focus()},50);
@@ -401,6 +402,10 @@ $("lockGo").onclick=async function(){
     await loadState();
     showToast("동기화 폴더에 연결됐어요");
   }catch(e){$("lockErr").textContent=e.message}
+};
+$("pickFolder").onclick=async function(){
+  try{var d=await api("/api/pick-folder",{});if(d.path){$("syncDir").value=d.path;$("candSel").value=""}}
+  catch(e){$("lockErr").textContent=e.message}
 };
 $("master").addEventListener("keydown",function(e){if(e.key==="Enter")$("lockGo").click()});
 

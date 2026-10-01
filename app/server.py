@@ -125,6 +125,25 @@ def latest_release():
         return None
 
 
+def pick_folder() -> str:
+    """운영체제 폴더 선택 창을 띄운다. 취소하면 빈 문자열."""
+    prompt = "구글 드라이브의 '내 드라이브' 폴더를 골라 주세요"
+    if IS_MAC:
+        r = subprocess.run(["osascript", "-e", f'POSIX path of (choose folder with prompt "{prompt}")'],
+                           capture_output=True, text=True)
+        return r.stdout.strip()
+    if IS_WIN:
+        ps = ("Add-Type -AssemblyName System.Windows.Forms;"
+              "$d=New-Object System.Windows.Forms.FolderBrowserDialog;"
+              f"$d.Description='{prompt}';$d.ShowNewFolderButton=$true;"
+              "$f=New-Object System.Windows.Forms.Form -Property @{TopMost=$true};"
+              "if($d.ShowDialog($f) -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;Write-Output $d.SelectedPath}")
+        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], capture_output=True,
+                           text=True, encoding="utf-8", creationflags=0x08000000)
+        return r.stdout.strip()
+    return ""
+
+
 def open_path(p):
     if IS_WIN:
         os.startfile(p)  # noqa
@@ -208,6 +227,8 @@ class Handler(BaseHTTPRequestHandler):
             return {}
         if path == "/api/setup":
             return STORE.setup(b["syncDir"], b["master"], bool(b.get("remember")))
+        if path == "/api/pick-folder":
+            return {"path": pick_folder()}
         if path == "/api/unlock":
             return STORE.unlock(b["master"], bool(b.get("remember")))
         if path == "/api/lock":
