@@ -1,0 +1,68 @@
+# 윈도우·맥 버전을 같은 코드로 함께 빌드한다.
+# v1.2.3 같은 태그를 올리면 두 버전이 한 릴리스에 같이 올라간다 → 항상 같은 버전 유지.
+# (비공개 저장소는 맥 빌드 시간이 무료 사용량을 많이 써서, 태그·수동 실행 때만 빌드)
+name: build
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+          - os: macos-latest        # Apple Silicon (M1~)
+            label: mac-apple-silicon
+          - os: macos-15-intel      # 인텔 맥
+            label: mac-intel
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.label == 'mac-intel' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -r requirements.txt
+      - name: Build info
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          [[ "$GITHUB_REF_TYPE" == "tag" ]] || VER="$(grep -oE 'APP_VERSION = "[^"]+"' app/common.py | head -1 | cut -d'"' -f2)-dev"
+          echo "REPO = \"${GITHUB_REPOSITORY}\"" > app/_build_info.py
+          echo "VERSION = \"${VER}\"" >> app/_build_info.py
+          echo "NBH_VERSION=${VER}" >> $GITHUB_ENV
+      - name: PyInstaller
+        run: pyinstaller --noconfirm BlogAutoDraft.spec
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist/BlogAutoDraft.exe pkg/
+          Copy-Item docs/사용법.txt pkg/
+          Compress-Archive -Path pkg/* -DestinationPath BlogAutoDraft-${{ matrix.label }}.zip
+      - name: Package (Mac)
+        if: runner.os == 'macOS'
+        run: |
+          cp docs/사용법.txt dist/
+          cd dist && ditto -c -k --sequesterRsrc --keepParent "블로그 자동 임시저장.app" app.zip
+          mkdir pkg && mv app.zip pkg/ && cp 사용법.txt pkg/
+          cd pkg && unzip -q app.zip && rm app.zip && cd ..
+          ditto -c -k pkg ../BlogAutoDraft-${{ matrix.label }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlogAutoDraft-${{ matrix.label }}
+          path: BlogAutoDraft-${{ matrix.label }}.zip
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BlogAutoDraft-${{ matrix.label }}.zip

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블로그 자동 임시저장</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--tx:#111;--mut:#666;--bd:#d8dbe0;--ac:#03c75a;--err:#b5403a;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#181a1d;--card:#24272b;--tx:#eee;--mut:#9aa0a6;--bd:#3a3e44;color-scheme:dark}}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:14px}
+.wrap{max-width:900px;margin:0 auto;padding:14px 16px 80px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.topbar h1{font-size:17px;margin:0;flex:1}
+.chip{font-size:12px;color:var(--mut);border:1px solid var(--bd);border-radius:999px;padding:4px 10px;background:var(--card)}
+.chip.ok{color:var(--ac);border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 18px}
+.sectiontitle{margin:0 0 8px;font-size:12px;font-weight:bold;color:var(--mut)}
+.step{margin-bottom:22px}
+.step-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.step-num{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--ac);color:#fff;font-size:13px;font-weight:bold;flex:none}
+.step-title{font-size:15px;font-weight:bold}
+.colorcols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:560px){.colorcols{grid-template-columns:1fr}}
+.stylesection{margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)}
+.stylesection:first-child{margin-top:0;padding-top:0;border-top:none}
+#lockArea.locked{opacity:.45;pointer-events:none;user-select:none}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 0}
+input[type=number],input[type=text],input[type=password]{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:6px;font-size:14px;max-width:170px;font-family:inherit}
+select{appearance:none;-webkit-appearance:none;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;color:var(--tx);border:1.5px solid var(--bd);border-radius:999px;padding:6px 30px 6px 14px;font-size:14px;max-width:220px;cursor:pointer;font-family:inherit}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px rgba(3,199,90,.15)}
+input[type=color]{width:44px;height:28px;border:1px solid var(--bd);padding:0;background:none}
+textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font-size:14px;font-family:inherit}
+button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+button.g{background:var(--bd);color:var(--tx)}
+button.danger{background:var(--err)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.stylerow{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap}
+.stylerow>span{width:92px;flex:0 0 auto;font-size:13px;display:flex;align-items:center;gap:4px}
+#swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.swatch{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:8px 6px;border:1px solid var(--bd);border-radius:8px;cursor:pointer;font-size:13px;margin:0}
+.swatch input{margin:0}
+.swatch .dots{display:flex;gap:3px}
+.swatch .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}
+.swatch .hexrow{display:flex;gap:5px;font-size:11px;font-family:monospace;color:var(--mut)}
+.swatch .hexrow span{cursor:pointer;padding:1px 3px;border-radius:4px}
+.swatch .hexrow span:hover{background:var(--bd)}
+.swatch .hexrow span.copied{color:var(--ac);font-weight:bold}
+.acct label{white-space:nowrap}
+.swatch.on{border-color:var(--ac);background:rgba(3,199,90,.08)}
+.mut{color:var(--mut);font-size:12px;margin:6px 0 0}
+h2{font-size:15px;margin:0 0 10px}
+.acct{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:4px 18px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
+.drop{border:2px dashed var(--bd);border-radius:10px;padding:22px;text-align:center;color:var(--mut);cursor:pointer;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--ac);background:rgba(3,199,90,.06)}
+.items{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.item{display:flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;cursor:pointer;background:var(--card)}
+.item.sel{border-color:var(--ac);box-shadow:0 0 0 2px rgba(3,199,90,.15)}
+.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:12px;border-radius:999px;padding:2px 9px;background:var(--bg);border:1px solid var(--bd);white-space:nowrap}
+.badge.run{border-color:#e0a800;color:#a77d00}
+.badge.ok{border-color:var(--ac);color:var(--ac)}
+.badge.err{border-color:var(--err);color:var(--err)}
+.twocol{display:grid;grid-template-columns:1fr 1.6fr;gap:14px;align-items:start}
+@media (max-width:760px){.twocol{grid-template-columns:1fr}}
+.tagchip{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
+#scroll{overflow:auto;border:1px solid var(--bd);border-radius:8px;max-height:640px;background:#fff}
+#out{padding:30px 16px;color:#000;font-family:"NanumBarunGothic","나눔바른고딕","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+.log{font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;max-height:240px;overflow:auto;margin:0}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.overlay.on{display:flex}
+.modal{background:var(--card);border-radius:12px;padding:20px;width:100%;max-width:520px;max-height:90vh;overflow:auto;box-sizing:border-box}
+.modal h2{font-size:16px}
+.modal input[type=text],.modal input[type=password]{max-width:none;width:100%;box-sizing:border-box}
+.field{margin:10px 0}
+.field>div:first-child{font-size:13px;margin-bottom:4px;font-weight:bold}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);background:#222;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.banner{background:#fff6d6;color:#6b5200;border:1px solid #f0d77a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;display:none}
+.err{color:var(--err);font-size:13px;margin:6px 0 0;min-height:1em}
+a{color:var(--ac)}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="topbar">
+  <h1>블로그 자동 임시저장</h1>
+  <span class="chip" id="syncChip">동기화 확인 중</span>
+  <button class="g" id="settingsBtn">⚙ 설정</button>
+ </div>
+ <div class="banner" id="updateBanner"></div>
+ <div class="banner" id="keyBanner">AI 꾸미기를 쓰려면 ⚙ 설정에서 <b>Gemini API 키</b>(무료)를 넣어 주세요.</div>
+
+ <!-- 1. 프리셋 -->
+ <div class="step" id="step1">
+  <div class="step-head"><span class="step-num">1</span><span class="step-title">클라이언트 프리셋</span></div>
+  <div class="card">
+   <div class="row"><input type="text" id="pn" placeholder="클라이언트 이름" autocomplete="off"><button id="ps">저장</button><button class="g" id="pnew">신규</button></div>
+   <div class="row" style="margin-top:8px"><select id="pl"></select><button class="g" id="pd">삭제</button>
+    <span style="flex:1"></span><button class="g" id="pimp">프리셋 파일 가져오기</button><button class="g" id="pexp">내보내기</button>
+    <input type="file" id="pimpIn" accept=".json,.txt" style="display:none"></div>
+   <textarea id="note" placeholder="이 프리셋 특이사항 (꾸밀 때 참고돼요. 예: 배경색보다 밑줄 위주로, 인용구는 절대 쓰지 말 것 등)" style="height:56px;margin-top:8px"></textarea>
+   <textarea id="memo" placeholder="메모장 (꾸미기에 반영되지 않는 참고용 메모)" style="height:44px;margin-top:8px"></textarea>
+   <div class="acct">
+    <label>네이버 아이디<input type="text" id="accId" autocomplete="off"></label>
+    <label>비밀번호<input type="password" id="accPw" autocomplete="new-password" placeholder=""></label>
+    <label>블로그 주소 아이디<input type="text" id="accBlog" placeholder="비우면 아이디와 같음" autocomplete="off"></label>
+   </div>
+   <p class="mut">계정 정보는 동기화 비밀번호로 암호화되어 저장되고, 윈도우·맥에서 같이 쓰여요.</p>
+   <p class="mut" id="lockMsg" style="color:var(--err);font-weight:bold">먼저 위에서 프리셋을 선택하거나, "신규" 버튼을 눌러 새 클라이언트를 만들어주세요.</p>
+  </div>
+ </div>
+
+ <div id="lockArea" class="locked">
+ <!-- 2. 스타일 -->
+ <div class="step" id="step2">
+  <div class="step-head"><span class="step-num">2</span><span class="step-title">원고 스타일</span></div>
+  <div class="card">
+   <div class="stylesection">
+    <p class="sectiontitle">공통 스타일</p>
+    <div class="grid">
+     <label>본문 크기(px)<input type="number" id="bs" value="19"></label>
+     <label>줄 간격<input type="number" id="lh" value="180" step="10"></label>
+     <label>본문 정렬<select id="ba"><option value="left">왼쪽</option><option value="center">가운데</option><option value="right">오른쪽</option></select></label>
+    </div>
+    <input type="hidden" id="swid" value=""><input type="hidden" id="mode" value="pt">
+   </div>
+   <div class="stylesection">
+    <div class="grid">
+     <label>인용구 꾸밈 사용<input type="checkbox" id="qon" checked></label>
+     <label>인용구 크기(px)<input type="number" id="qs" value="26" style="max-width:70px"></label>
+     <label>스타일 레벨<select id="deco"><option value="low">낮음</option><option value="mid" selected>보통</option><option value="high">높음</option></select></label>
+     <label style="grid-column:1/-1"><span style="flex:none">자동 인용구처리 문자</span><input type="text" id="qch" value="<,>" style="flex:1;max-width:none"></label>
+     <label style="grid-column:1/-1"><span style="flex:none">자동 강조 단어</span><input type="text" id="kw" placeholder="업체명, 지역명 (쉼표)" style="flex:1;max-width:none"></label>
+    </div>
+    <div class="colorcols" style="margin-top:12px">
+     <div>
+      <div class="stylerow"><span>스타일 1 색</span><input type="color" id="kc" value="#b5403a"></div>
+      <div class="stylerow"><span>포인트 배경</span><input type="color" id="hl" value="#fde3cf"></div>
+      <div class="stylerow"><span><input type="checkbox" id="use2">스타일 2 색</span><input type="color" id="kc2" value="#3a6ab5"></div>
+     </div>
+     <div><p class="mut" style="margin:0 0 6px">자주 쓰는 세트</p><div id="swatches"></div></div>
+    </div>
+   </div>
+  </div>
+ </div>
+
+ <!-- 3. 원고 -->
+ <div class="step" id="step3">
+  <div class="step-head"><span class="step-num">3</span><span class="step-title">원고 넣고 실행</span></div>
+  <div class="card">
+   <div class="drop" id="drop">한글(.hwpx)·텍스트(.txt) 원고 파일을 여기에 끌어다 놓거나 <b>클릭해서 선택</b>하세요 (여러 개 가능)</div>
+   <input type="file" id="fileIn" accept=".hwpx,.txt" multiple style="display:none">
+   <details style="margin-top:10px"><summary class="mut" style="cursor:pointer">직접 붙여넣기</summary>
+    <textarea id="pasteIn" style="height:140px;margin-top:6px" placeholder="원고를 여기에 붙여넣고 [목록에 추가]"></textarea>
+    <div class="row" style="margin-top:6px"><button class="g" id="pasteAdd">목록에 추가</button></div>
+   </details>
+   <div class="items" id="items"></div>
+   <div class="row" style="margin-top:12px">
+    <button id="runAll">▶ 실행 (AI 꾸밈 → 로그인 → 작성 → 태그 → 임시저장)</button>
+    <button class="g" id="stopAll">■ 중지</button>
+    <button class="g" id="clearDone">완료 항목 지우기</button>
+   </div>
+   <label style="justify-content:flex-start;margin-top:10px"><input type="checkbox" id="previewFirst"> 업로드 전에 미리보기로 확인하고 직접 [업로드] 누르기</label>
+   <p class="mut">구버전 .hwp는 읽을 수 없어요. 한글에서 "다른 이름으로 저장 → hwpx"로 저장해주세요.</p>
+  </div>
+ </div>
+ </div>
+
+ <!-- 4. 결과 -->
+ <div class="step" id="step4">
+  <div class="step-head"><span class="step-num">4</span><span class="step-title">결과 확인</span></div>
+  <div class="twocol">
+   <div class="card">
+    <h2>선택한 원고</h2>
+    <label>글 제목<input type="text" id="title" style="max-width:none;flex:1"></label>
+    <h2 style="margin-top:14px">해시태그</h2>
+    <div id="tags" class="row"></div>
+    <p class="mut" id="tagMsg"></p>
+    <div class="row" style="margin-top:12px">
+     <button id="uploadOne">이 원고 업로드</button>
+     <button class="g" id="redoOne">다시 꾸미기</button>
+     <button class="g" id="cp">본문 복사</button>
+    </div>
+    <p class="err" id="itemErr"></p>
+   </div>
+   <div class="card">
+    <h2>결과 미리보기</h2>
+    <div id="scroll"><div id="out"><p style="color:#999;text-align:center">원고를 선택하면 미리보기가 보여요</p></div></div>
+   </div>
+  </div>
+  <div class="card">
+   <div class="row" style="justify-content:space-between"><h2 style="margin:0">진행 기록</h2><button class="g" id="openLogs">로그 폴더</button></div>
+   <pre class="log" id="log" style="margin-top:10px">아직 작업이 없어요.</pre>
+  </div>
+ </div>
+</div>
+
+<!-- 잠금/설정 화면 -->
+<div class="overlay" id="lockOv">
+ <div class="modal">
+  <h2 id="lockTitle">시작하기</h2>
+  <div id="setupBox">
+   <p class="mut" style="margin-top:0">프리셋·계정 정보를 저장할 <b>구글 드라이브 폴더</b>를 정해주세요. 윈도우와 맥에서 같은 폴더를 고르면 자동으로 동기화돼요.</p>
+   <div class="field"><div>동기화 폴더</div><select id="candSel" style="max-width:none;width:100%"></select>
+    <input type="text" id="syncDir" placeholder="예: G:\내 드라이브\NaverBlogHelper" style="margin-top:6px"></div>
+  </div>
+  <div class="field"><div id="masterLabel">동기화 비밀번호</div><input type="password" id="master" autocomplete="new-password">
+   <p class="mut" id="masterHelp">계정 비밀번호와 API 키를 암호화하는 비밀번호예요. 다른 컴퓨터에서도 이 비밀번호를 한 번 입력해야 해요. 잊어버리면 복구할 수 없어요.</p></div>
+  <label style="justify-content:flex-start"><input type="checkbox" id="remember" checked> 이 컴퓨터에서 기억하기</label>
+  <p class="err" id="lockErr"></p>
+  <div class="row" style="justify-content:flex-end"><button id="lockGo">확인</button></div>
+ </div>
+</div>
+
+<div class="overlay" id="setOv">
+ <div class="modal">
+  <h2>설정</h2>
+  <div class="field"><div>Gemini API 키 (무료)</div>
+   <input type="password" id="gkey" placeholder="저장된 키가 있으면 비워두세요">
+   <p class="mut"><a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> 에서 구글 계정으로 로그인 → "API 키 만들기". 카드 등록 없이 무료 등급으로 쓸 수 있어요(하루 사용량 제한 있음). 무료 등급은 입력한 원고가 구글 모델 개선에 쓰일 수 있어요.</p></div>
+  <div class="field"><div>AI 모델</div><div class="row"><select id="model" style="max-width:none;flex:1"></select><button class="g" id="loadModels">목록 불러오기</button></div></div>
+  <div class="field"><div>해시태그 넣는 방식</div><select id="tagMode" style="max-width:none;width:100%">
+   <option value="both">발행 설정 태그칸 + 본문 맨 아래(AI가 만든 경우)</option>
+   <option value="dialog">발행 설정 태그칸에만</option>
+   <option value="body">본문 맨 아래에만</option></select></div>
+  <div class="field"><div>네이버 작업용 브라우저</div><select id="browser"><option value="auto">자동</option><option value="edge">Edge</option><option value="chrome">Chrome</option></select></div>
+  <div class="field"><div>동기화 폴더</div><div class="mut" id="syncPath" style="word-break:break-all"></div>
+   <div class="row" style="margin-top:6px"><button class="g" id="openSync">폴더 열기</button><button class="g" id="lockBtn">이 컴퓨터에서 잠그기</button></div></div>
+  <p class="mut" id="verInfo"></p>
+  <p class="err" id="setErr"></p>
+  <div class="row" style="justify-content:flex-end"><button class="g" id="setClose">닫기</button><button id="setSave">저장</button></div>
+ </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/jszip.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

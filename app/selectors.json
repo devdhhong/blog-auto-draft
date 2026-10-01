@@ -1,0 +1,50 @@
+{
+  "_설명": "네이버 화면이 바뀌어 버튼을 못 찾으면, 구글 드라이브의 NaverBlogHelper 폴더에 selectors.json을 만들어 바뀐 항목만 넣으면 윈도우·맥 모두에 적용됩니다.",
+
+  "로그인_주소": "https://nid.naver.com/nidlogin.login?mode=form&url=https%3A%2F%2Fblog.naver.com%2F",
+  "로그인_아이디칸": ["#id", "input[name='id']"],
+  "로그인_비번칸": ["#pw", "input[name='pw']"],
+  "로그인_상태유지": ["#keep", "label[for='keep']"],
+  "로그인_버튼": ["#log\\.login", "button[type='submit']", ".btn_login"],
+  "로그인_확인_쿠키": "NID_AUT",
+  "로그인_쿠키_주소": "https://naver.com",
+
+  "글쓰기_주소": "https://blog.naver.com/{blogId}?Redirect=Write&",
+  "에디터_프레임": "mainFrame",
+
+  "팝업_닫기": [
+    ".se-popup-button-cancel",
+    ".se-help-panel-close-button",
+    "button.se-help-panel-close-button",
+    ".se-popup-close-button"
+  ],
+  "제목칸": [
+    ".se-documentTitle .se-text-paragraph",
+    ".se-section-documentTitle .se-text-paragraph",
+    ".se-title-text"
+  ],
+  "본문칸": [
+    ".se-component.se-text .se-text-paragraph",
+    ".se-section-text .se-text-paragraph"
+  ],
+  "본문_전체영역": [".se-content", ".se-main-container", "#SE-editor"],
+
+  "발행_버튼": [
+    "button[class*='publish_btn']",
+    "button:has-text('발행')"
+  ],
+  "태그_입력칸": [
+    "#tag-input",
+    "input[placeholder*='태그']",
+    "input[class*='tag_input']"
+  ],
+  "발행창_닫기": [
+    "button[class*='btn_close']",
+    "button[class*='close_btn']"
+  ],
+  "임시저장_버튼": [
+    "button[class*='save_btn']",
+    "button:has-text('저장')"
+  ],
+  "임시저장_완료문구": ["text=저장되었습니다", "text=임시저장"]
+}
