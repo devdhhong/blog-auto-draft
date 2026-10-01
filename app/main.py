@@ -21,6 +21,8 @@ import server  # noqa: E402
 
 
 def find_app_browser() -> str | None:
+    if os.environ.get("NBH_APP_BROWSER"):   # 테스트용
+        return os.environ["NBH_APP_BROWSER"]
     cands = []
     if IS_WIN:
         for env in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"):
@@ -37,6 +39,22 @@ def find_app_browser() -> str | None:
     return next((c for c in cands if c and os.path.exists(c)), None)
 
 
+def kill_ui_window(ui_dir: str):
+    """이전에 띄운 앱 창(전용 프로필의 크롬/엣지)이 남아 있으면 정리한다.
+    맥은 창을 닫아도 크롬이 꺼지지 않아, 다음 실행 때 새 창이 옛 프로세스로 넘어가 버리는 문제를 막는다."""
+    try:
+        if IS_MAC:
+            subprocess.run(["pkill", "-f", f"user-data-dir={ui_dir}"], capture_output=True)
+        elif IS_WIN:
+            ps = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' or Name='chrome.exe'\" | "
+                  "Where-Object { $_.CommandLine -like '*NaverBlogHelper*ui-window*' } | "
+                  "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, creationflags=0x08000000)
+        time.sleep(0.5)
+    except Exception:
+        pass
+
+
 def main():
     srv = server.serve(int(os.environ.get("NBH_PORT", "0")))
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
@@ -45,22 +63,31 @@ def main():
         while True:
             time.sleep(3600)
 
+    ui_dir = os.path.join(data_dir(), "ui-window")
     br = find_app_browser()
-    proc = None
     if br:
-        proc = subprocess.Popen([br, f"--app={url}", f"--user-data-dir={os.path.join(data_dir(), 'ui-window')}",
-                                 "--no-first-run", "--no-default-browser-check", "--window-size=1100,900"])
+        kill_ui_window(ui_dir)
+        subprocess.Popen([br, f"--app={url}", f"--user-data-dir={ui_dir}", "--no-first-run",
+                          "--no-default-browser-check", "--window-size=1100,900",
+                          "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
+                          "--disable-backgrounding-occluded-windows"])
     else:
         webbrowser.open(url)
 
+    # 종료 판단은 화면이 보내는 신호로만 한다:
+    #  - 창을 닫으면 화면이 '닫힘' 신호를 보내고, 10초 안에 다시 연결되지 않으면 종료 (새로고침은 유지)
+    #  - 신호 없이 3분 넘게 연락이 없으면 종료
+    #  - 업로드 진행 중이면 끝날 때까지 기다림
+    started = time.time()
     while True:
         time.sleep(2)
-        # 창 프로세스가 끝났거나(윈도우), 화면이 60초 넘게 응답이 없으면(맥은 창을 닫아도 프로세스가 남음) 종료
-        closed = (proc is not None and proc.poll() is not None) or time.time() - server.LAST_PING[0] > 60
-        if closed and not server.JOBS.busy():
+        now = time.time()
+        idle = now - server.LAST_PING[0]
+        bye = server.BYE[0] and now - server.BYE[0] > 10 and server.BYE[0] >= server.LAST_PING[0]
+        if (bye or (idle > 180 and now - started > 180)) and not server.JOBS.busy():
             break
-    if proc is not None and proc.poll() is None:
-        proc.terminate()
+    if br:
+        kill_ui_window(ui_dir)
     os._exit(0)
 
 

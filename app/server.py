@@ -20,6 +20,7 @@ from store import LockedError, Store
 STORE = Store()
 STORE.try_auto_unlock()
 LAST_PING = [time.time()]
+BYE = [0.0]   # 화면이 닫힐 때 받은 시각
 
 
 # ------------------------------------------------------------------ 작업 큐
@@ -34,6 +35,9 @@ class Jobs:
         self.worker.start()
 
     def add(self, job: dict) -> dict:
+        # 새로 업로드를 요청했으면 이전의 '중지' 상태는 풀어 준다
+        if self.q.empty() and not self.busy():
+            self.stop.clear()
         with self.lock:
             self.seq += 1
             job = {**job, "id": self.seq, "status": "대기", "log": [], "t": time.time()}
@@ -57,6 +61,8 @@ class Jobs:
                 continue
             if self.stop.is_set():
                 job["status"] = "취소"
+                if self.q.empty():
+                    self.stop.clear()
                 continue
             job["status"] = "진행 중"
 
@@ -202,6 +208,9 @@ class Handler(BaseHTTPRequestHandler):
         return st
 
     def do_POST(self):
+        if self.path.startswith("/api/bye") and self._host_ok():   # 창 닫힘 신호 (sendBeacon)
+            BYE[0] = time.time()
+            return self._send(200, {})
         if not self._host_ok() or self.headers.get("X-App") != "1":
             return self._send(403, {"error": "forbidden"})
         n = int(self.headers.get("Content-Length") or 0)
@@ -224,6 +233,7 @@ class Handler(BaseHTTPRequestHandler):
     def route(self, path, b):
         if path == "/api/ping":
             LAST_PING[0] = time.time()
+            BYE[0] = 0.0
             return {}
         if path == "/api/setup":
             return STORE.setup(b["syncDir"], b["master"], bool(b.get("remember")))

@@ -22,7 +22,7 @@ class AIError(Exception):
     pass
 
 
-def _req(url: str, key: str, body: dict | None = None, timeout=120):
+def _req(url: str, key: str, body: dict | None = None, timeout=300):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method="POST" if data else "GET",
                                  headers={"Content-Type": "application/json", "x-goog-api-key": key})
@@ -55,6 +55,8 @@ def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", ret
         try:
             d = _req(url, key, body)
             cands = d.get("candidates") or []
+            if cands and not cands[0].get("content", {}).get("parts"):
+                raise AIError(f"AI가 답을 주지 않았습니다 (사유: {cands[0].get('finishReason')})")
             if not cands:
                 raise AIError("AI 응답이 비어 있습니다: " + json.dumps(d.get("promptFeedback", {}), ensure_ascii=False))
             parts = cands[0].get("content", {}).get("parts", [])
@@ -80,6 +82,9 @@ def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", ret
             time.sleep(2)
         except urllib.error.URLError as e:
             last = f"네트워크 오류: {e.reason}"
+            time.sleep(5)
+        except (TimeoutError, OSError) as e:
+            last = f"AI 응답 시간 초과/연결 오류: {e}"
             time.sleep(5)
     raise AIError(last or "AI 호출 실패")
 

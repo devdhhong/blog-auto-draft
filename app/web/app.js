@@ -7,11 +7,15 @@ var F=["mode","bs","lh","ba","kc","kc2","use2","hl","qs","qon","qch","deco","kw"
 /* ---------- 서버 통신 ---------- */
 async function api(path,body){
   var opt=body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json","X-App":"1"},body:JSON.stringify(body)};
-  var r=await fetch(path,opt);
+  var r;
+  try{r=await fetch(path,opt)}
+  catch(e){showDead();throw new Error("프로그램 본체와 연결이 끊겼어요. 이 창을 완전히 닫고(맥은 ⌘+Q) 프로그램을 다시 실행해 주세요.")}
   var d={};try{d=await r.json()}catch(e){}
   if(!r.ok)throw new Error(d.error||("오류 "+r.status));
   return d;
 }
+function showDead(){var b=document.getElementById("updateBanner");if(!b)return;b.textContent="프로그램 본체와 연결이 끊겼어요. 이 창을 완전히 닫고(맥은 ⌘+Q) 프로그램을 다시 실행해 주세요.";b.style.background="#fde2e2";b.style.borderColor="#e8a0a0";b.style.color="#8a1f1f";b.style.display="block"}
+window.addEventListener("pagehide",function(){try{navigator.sendBeacon("/api/bye","1")}catch(e){}});
 /* 기존 페이지의 sample.json(prompt) 자리에 Gemini 호출을 연결 */
 var sample={json:async function(prompt){var d=await api("/api/ai",{prompt:prompt});return d.result||{}}};
 
@@ -516,7 +520,8 @@ function renderItems(){
     var d=document.createElement("div");d.className="item"+(it.id===SEL?" sel":"");
     d.innerHTML='<span class="nm"></span><span class="mut" style="margin:0"></span><span class="badge '+(BADGE[it.status]||"")+'"></span><button class="g" style="padding:2px 8px;font-size:12px">✕</button>';
     d.querySelector(".nm").textContent=it.file+" — "+(it.title||"");
-    d.querySelector(".mut").textContent=it.preset;
+    d.querySelector(".mut").textContent=it.status==="실패"&&it.err?("⚠ "+it.err).slice(0,80):it.preset;
+    if(it.err){d.querySelector(".mut").style.color="var(--err)";d.title=it.err}
     d.querySelector(".badge").textContent=it.status;
     d.onclick=function(){SEL=it.id;renderItems();renderSelected()};
     d.querySelector("button").onclick=function(e){e.stopPropagation();if(it.status==="AI 꾸미는 중"||it.status==="업로드 중")return;ITEMS=ITEMS.filter(function(x){return x!==it});if(SEL===it.id)SEL=ITEMS.length?ITEMS[0].id:null;renderItems();renderSelected()};
