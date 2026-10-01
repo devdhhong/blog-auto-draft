@@ -5,7 +5,7 @@ AI 꾸밈(Gemini 무료) → 해시태그 → 로그인 → 작성 → 태그 �
 
 - 사용법: [docs/사용법.txt](docs/사용법.txt)
 - 내려받기: 이 저장소의 **Releases**에서 윈도우/맥 파일
-- 새 버전 만들기: `app/common.py`의 `APP_VERSION`을 올리고 `v1.0.1` 같은 태그를 push → 윈도우·맥이 함께 빌드되어 같은 릴리스에 올라감
+- 새 버전 만들기: `app/common.py`의 `APP_VERSION`을 올리고 main에 push → 윈도우·맥이 함께 빌드되어 같은 이름의 릴리스(v1.0.1 등)에 올라감
 
 ## 구조
 | 파일 | 역할 |
