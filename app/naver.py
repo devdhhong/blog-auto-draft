@@ -218,9 +218,15 @@ class Naver:
             raise RuntimeError("로그인 입력칸을 찾지 못했습니다.")
         for box, val in ((idbox, naver_id), (pwbox, pw)):
             box.click(); box.fill("")
-            self._clipboard(p.main_frame, val)
-            self._paste_key()
-            time.sleep(0.4)
+            try:
+                self._clipboard(p.main_frame, val)
+                self._paste_key()
+                time.sleep(0.4)
+            except Exception:
+                pass
+            if box.input_value() != val:   # 붙여넣기가 안 먹힌 경우 (맥 등)
+                box.fill(val)
+                time.sleep(0.3)
         self._clear_clipboard(p.main_frame)
         keep = self.find(p, "로그인_상태유지", timeout=1)
         if keep:
@@ -284,8 +290,11 @@ class Naver:
 
     def paste_html(self, fr, html: str, plain: str):
         before = self.body_len(fr)
-        self._clipboard(fr, plain, html)
-        self._paste_key()
+        try:
+            self._clipboard(fr, plain, html)
+            self._paste_key()
+        except Exception as e:
+            self.log(f"  클립보드 사용 실패({e}) → 다른 방식 시도")
         time.sleep(1.5)
         if self.body_len(fr) > before + 5:
             return
@@ -297,6 +306,11 @@ class Naver:
                 (document.activeElement || document.body).dispatchEvent(
                     new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true}));
             }""", [html, plain])
+        time.sleep(1.5)
+        if self.body_len(fr) > before + 5:
+            return
+        self.log("  다른 방식(insertHTML)으로 다시 시도합니다")
+        fr.evaluate("h => document.execCommand('insertHTML', false, h)", html)
         time.sleep(1.5)
         if self.body_len(fr) > before + 5:
             return
