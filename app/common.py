@@ -6,7 +6,7 @@ import sys
 
 APP_NAME = "블로그 자동 임시저장"
 APP_ID = "NaverBlogHelper"
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.4"
 # GitHub 저장소 (owner/repo). 새 버전 알림에 사용. 비워두면 확인하지 않음.
 try:  # 빌드할 때 GitHub Actions가 만들어 넣는 파일
     from _build_info import REPO as _REPO, VERSION as _VER

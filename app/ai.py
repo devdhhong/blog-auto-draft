@@ -44,14 +44,33 @@ def _parse_json(text: str):
         raise
 
 
-def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", retries: int = 4) -> dict:
-    if not key:
-        raise AIError("Gemini API 키가 설정되지 않았습니다. 설정에서 키를 넣어 주세요.")
+_MODELS_CACHE: dict = {}
+
+
+def _fallback_models(key: str, first: str) -> list[str]:
+    """선택한 모델이 붐빌 때(503 등) 차례로 시도할 무료 flash 계열 모델 목록."""
+    out = [first]
+    try:
+        if key not in _MODELS_CACHE:
+            _MODELS_CACHE[key] = list_models(key)
+        names = _MODELS_CACHE[key]
+    except Exception:
+        names = []
+    skip = ("image", "tts", "live", "audio", "embedding", "vision", "preview-tts", "transcribe", "robotics")
+    flash = [m for m in names if "flash" in m and not any(x in m for x in skip)]
+    # 별칭(latest) 우선, 그다음 이름순 최신
+    flash.sort(key=lambda m: (0 if m.endswith("-latest") else 1, m), reverse=False)
+    for m in ["gemini-flash-latest", "gemini-flash-lite-latest"] + flash:
+        if m not in out:
+            out.append(m)
+    return out[:5]
+
+
+def _one(model: str, key: str, body: dict, tries: int):
+    """한 모델로 시도. 붐빔(429/5xx)이면 ('busy', 메시지)를 돌려준다."""
     url = f"{BASE}/models/{model}:generateContent"
-    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.4}}
     last = None
-    for attempt in range(retries):
+    for attempt in range(tries):
         try:
             d = _req(url, key, body)
             cands = d.get("candidates") or []
@@ -61,21 +80,22 @@ def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", ret
                 raise AIError("AI 응답이 비어 있습니다: " + json.dumps(d.get("promptFeedback", {}), ensure_ascii=False))
             parts = cands[0].get("content", {}).get("parts", [])
             text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
-            return _parse_json(text)
+            return "ok", _parse_json(text)
         except urllib.error.HTTPError as e:
             msg = e.read().decode(errors="replace")
-            last = f"HTTP {e.code}: {msg[:300]}"
+            last = f"HTTP {e.code}: {msg[:200]}"
             if e.code in (429, 500, 502, 503, 504):
-                wait = 15 * (attempt + 1)
+                wait = 8 * (attempt + 1)
                 m = re.search(r'"retryDelay":\s*"(\d+)', msg)
                 if m:
-                    wait = int(m.group(1)) + 2
-                time.sleep(min(wait, 70))
+                    wait = min(int(m.group(1)) + 2, 40)
+                if attempt < tries - 1:
+                    time.sleep(wait)
                 continue
             if e.code in (400, 403) and "API key" in msg:
                 raise AIError("Gemini API 키가 올바르지 않습니다.")
             if e.code == 404:
-                raise AIError(f"모델 '{model}'을 찾을 수 없습니다. 설정에서 모델 목록을 불러와 다시 고르세요.")
+                return "busy", f"모델 '{model}' 없음"
             raise AIError(last)
         except (json.JSONDecodeError, KeyError) as e:
             last = f"응답 해석 실패: {e}"
@@ -86,7 +106,22 @@ def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", ret
         except (TimeoutError, OSError) as e:
             last = f"AI 응답 시간 초과/연결 오류: {e}"
             time.sleep(5)
-    raise AIError(last or "AI 호출 실패")
+    return "busy", last
+
+
+def generate_json(prompt: str, key: str, model: str = "gemini-flash-latest", retries: int = 3) -> dict:
+    if not key:
+        raise AIError("Gemini API 키가 설정되지 않았습니다. 설정에서 키를 넣어 주세요.")
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.4}}
+    tried = []
+    for m in _fallback_models(key, model or "gemini-flash-latest"):
+        status, res = _one(m, key, body, retries if m == model else 2)
+        if status == "ok":
+            return res
+        tried.append(f"{m}: {res}")
+    raise AIError("Gemini 서버가 지금 붐벼서(503/429) 처리하지 못했어요. 1~2분 뒤 다시 실행해 주세요.\n"
+                  "시도한 모델 — " + " / ".join(tried)[:400])
 
 
 def list_models(key: str) -> list[str]:
