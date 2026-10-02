@@ -163,7 +163,8 @@ def open_path(p):
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/app.js": ("app.js", "application/javascript; charset=utf-8"),
           "/jszip.min.js": ("jszip.min.js", "application/javascript; charset=utf-8"),
-          "/pako.min.js": ("pako.min.js", "application/javascript; charset=utf-8")}
+          "/pako.min.js": ("pako.min.js", "application/javascript; charset=utf-8"),
+          "/icon.png": ("icon.png", "image/png")}
 
 
 class Handler(BaseHTTPRequestHandler):

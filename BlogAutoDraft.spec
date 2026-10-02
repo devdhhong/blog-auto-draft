@@ -16,10 +16,11 @@ if os.environ.get('NBH_EXCLUDE_NODE'):   # 용량 줄인 윈도우 빌드: node.
 pyz = PYZ(a.pure)
 
 if sys.platform == 'darwin':
-    exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='BlogAutoDraft', console=False)
+    exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='BlogAutoDraft', console=False, icon='assets/icon.icns')
     coll = COLLECT(exe, a.binaries, a.datas, name='BlogAutoDraft')
-    app = BUNDLE(coll, name='블로그 자동 임시저장.app', bundle_identifier='com.blogautodraft.app',
+    app = BUNDLE(coll, name='블로그 자동 임시저장.app', bundle_identifier='com.blogautodraft.app', icon='assets/icon.icns',
                  info_plist={'CFBundleShortVersionString': os.environ.get('NBH_VERSION', '1.0.0'),
-                             'NSHighResolutionCapable': True})
+                             'NSHighResolutionCapable': True,
+                             'LSApplicationCategoryType': 'public.app-category.productivity'})
 else:
-    exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='BlogAutoDraft', console=False, upx=False)
+    exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='BlogAutoDraft', console=False, upx=False, icon='assets/icon.ico')
