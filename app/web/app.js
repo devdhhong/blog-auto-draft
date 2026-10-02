@@ -20,12 +20,13 @@ window.addEventListener("pagehide",function(){try{navigator.sendBeacon("/api/bye
 var sample={json:async function(prompt){var d=await api("/api/ai",{prompt:prompt});return d.result||{}}};
 
 var SWATCHES=[
-  {id:"red",name:"빨간계열",kc:"#eb1600",kc2:"#e0765f",hl:"#ffd4cc"},
-  {id:"blue",name:"파란계열",kc:"#005aca",kc2:"#5b8fc7",hl:"#cce7ff"},
-  {id:"green",name:"초록계열",kc:"#00803a",kc2:"#5fa77c",hl:"#ccffdc"},
-  {id:"brown",name:"갈색계열",kc:"#b85200",kc2:"#b98457",hl:"#ffe8cc"},
-  {id:"purple",name:"보라계열",kc:"#6400cc",kc2:"#9678b6",hl:"#e7ccff"},
-  {id:"pink",name:"핑크계열",kc:"#e70051",kc2:"#e88ba9",hl:"#ffccde"}
+  {id:"red",name:"빨간계열",kc:"#eb1600",kc2:"#fa6545",hl:"#ffd4cc"},
+  {id:"blue",name:"파란계열",kc:"#005aca",kc2:"#288dfa",hl:"#cce7ff"},
+  {id:"green",name:"초록계열",kc:"#00803a",kc2:"#08a045",hl:"#ccffdc"},
+  {id:"brown",name:"갈색계열",kc:"#b85200",kc2:"#e66f0a",hl:"#ffe8cc"},
+  {id:"purple",name:"보라계열",kc:"#6400cc",kc2:"#9434fa",hl:"#e7ccff"},
+  {id:"pink",name:"핑크계열",kc:"#e70051",kc2:"#fc77a2",hl:"#ffccde"},
+  {id:"wine",name:"와인계열",kc:"#c64a4a",kc2:"#740060",hl:"#fff8b2"}
 ];
 function renderSwatches(){
   var box=$("swatches");if(!box)return;
@@ -59,11 +60,12 @@ function applyQuoteMarkers(body){
   var chars=((CUR.qch||"")||"").split(",").map(function(s){return s.trim()}).filter(Boolean);
   if(!!!CUR.qon||!chars.length)return body;
   var escRe=function(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")};
-  var re=new RegExp("^(?:"+chars.map(escRe).join("|")+")\\s?");
+  var anyRe=new RegExp(chars.map(escRe).join("|"));
+  var prefixRe=new RegExp("^(?:"+chars.map(escRe).join("|")+")\\s?");
   return body.map(function(t){
     if(t.indexOf("Q|")===0||t.indexOf("C|")===0||t.indexOf("H|")===0)return t;
-    if(re.test(t))return "C|"+t.replace(re,"");
-    return t;
+    if(!anyRe.test(t))return t;
+    return "C|"+(prefixRe.test(t)?t.replace(prefixRe,""):t);
   });
 }
 function sentenceGroups(body){
@@ -169,35 +171,50 @@ function renderHTML(c,body,lastTags){
       return unwrapStray(out);
     };
     var PB=P.replace("margin:0 0 6px;","margin:0;");
-    var q=[],cq=[];
+    var q=[],cq=[],secN=0,titleNext=false;
     var flush=function(){
       if(!q.length)return;
       var lines=q.slice();
       lines[0]=lines[0].replace(/^["“”']+\s*/,"");
       lines[lines.length-1]=lines[lines.length-1].replace(/\s*["“”']+$/,"");
+      h+='<blockquote style="margin:16px 0;">';
       lines.forEach(function(t,i){
-        var mt=i===0?"16px":"0",mb=i===lines.length-1?"16px":"0";
-        h+='<p style="margin:'+mt+' 0 '+mb+';font-size:'+c.qs+'px;line-height:1.8;text-align:center;font-style:italic;color:'+qc+';">'+applyKW(t)+'</p>';
+        var mt=i===0?"0":"0",mb=i===lines.length-1?"0":"0";
+        h+='<p style="margin:'+mt+' 0 '+mb+';font-size:'+c.qs+'px;line-height:1.8;text-align:center;font-weight:bold;color:'+qc+';">'+applyKW(t)+'</p>';
       });
+      h+='</blockquote>';
       q=[];
     };
     var flushC=function(){
       if(!cq.length)return;
       var bsz=parseInt(c.bs,10)+2;
+      h+='<blockquote style="margin:16px 0;">';
       cq.forEach(function(t,i){
-        var first=i===0,last=i===cq.length-1;
-        var bd="border-left:2px solid #000000;border-right:2px solid #000000;"+(first?"border-top:2px solid #000000;":"")+(last?"border-bottom:2px solid #000000;":"");
-        var padTop=first?"16px":"4px",padBot=last?"16px":"4px";
-        h+='<p style="margin:'+(first?"16px":"0")+' 0 '+(last?"16px":"0")+';'+bd+'padding:'+padTop+' 16px '+padBot+';font-size:'+bsz+'px;line-height:1.5;text-align:center;font-weight:bold;">'+applyKW(t)+'</p>';
+        h+='<p style="margin:0;font-size:'+bsz+'px;line-height:1.5;text-align:center;font-weight:bold;">'+applyKW(t)+'</p>';
       });
+      h+='</blockquote>';
       cq=[];
     };
     sp.body.forEach(function(t){
-      if(t.indexOf("Q|")===0){flushC();q.push(unwrapStray(stripLead(t.slice(2))));return}
-      if(t.indexOf("C|")===0){flush();cq.push(unwrapStray(stripLead(t.slice(2))));return}
+      if(t.indexOf("Q|")===0){flushC();titleNext=false;q.push(unwrapStray(stripLead(t.slice(2))));return}
+      if(t.indexOf("C|")===0){flush();titleNext=false;cq.push(unwrapStray(stripLead(t.slice(2))));return}
+      if(NUM.test(t)){
+        flush();flushC();
+        secN++;
+        titleNext=c.qon&&secN>1;
+        h+='<p style="'+PB+'margin-top:30px;">'+esc(t)+'</p>';
+        return;
+      }
+      if(!t){flush();flushC();h+='<p style="'+PB+'">&nbsp;</p>';return}
+      if(titleNext){
+        titleNext=false;
+        var tt=t.indexOf("H|")===0||t.indexOf("U|")===0?t.slice(2):t;
+        flushC();
+        q.push(unwrapStray(stripLead(tt)));
+        flush();
+        return;
+      }
       flush();flushC();
-      if(!t){h+='<p style="'+PB+'">&nbsp;</p>';return}
-      if(NUM.test(t)){h+='<p style="'+PB+'margin-top:30px;">'+esc(t)+'</p>';return}
       if(t.indexOf("H|")===0){h+='<p style="'+PB+'"><span style="background-color:'+c.hl+';padding:2px 4px;">'+esc(unwrapStray(stripLead(t.slice(2))))+'</span></p>';return}
       if(t.indexOf("U|")===0)t=t.slice(2);
       h+='<p style="'+PB+'">'+accent(t)+'</p>';
@@ -219,8 +236,8 @@ async function aiMarks(sp){
     high:"- 이번 원고는 꾸밈 정도를 최대한 높게 한다. 기준: 아래에서 정의한 '단락' 하나하나마다 배경색(H) 바꾸는 문장 2개, 밑줄 처리하는 문장 1개, 폰트컬러+bold 처리(키워드나 문장) 2개 — 반드시 합쳐서 총 5개를 그 단락 안에 넣는다. 이건 목표치가 아니라 필수 개수다: 원고에 있는 단락 하나하나마다 정확히 이 5개(배경 2 + 밑줄 1 + bold 2)를 채워야 하고, 특정 단락만 적게 넣거나 건너뛰면 안 된다. 배경색(H)을 2문장보다 많이 쓰지는 말고, 밑줄도 1문장만. 인용구(Q)는 단락마다 가능하면 하나씩 추가로 넣는다(위 5개와는 별개)."
   }[(CUR.deco||"mid")]||"";
   var noteVal=((CUR.note||"")||"").trim();
-  var noteRuleTop=noteVal?"\n- ⚠️ 클라이언트 전용 특이사항(다른 모든 규칙보다 최우선): "+noteVal+" — 이 특이사항에 적힌 범위·기준·개수(예: \"문장 1개\", \"~까지만\")는 정확한 지시이니 그대로 따르고, 절대 임의로 늘리거나 줄이지 마라. 예를 들어 특이사항이 \"문장 1개\"라고 했는데 2개 이상을 고르면 틀린 것이다. 아래에 나오는 단락 정의, 개수 기준, 인용구 선택 방식 등 다른 규칙들은 이 특이사항이 다루지 않는 부분에서만 참고하고, 이 특이사항과 충돌하는 부분은 전부 무시해라.":"";
-  var noteRuleBottom=noteVal?"\n- 마지막으로 다시 한번: 위에서 준 클라이언트 특이사항(\""+noteVal+"\")의 범위·개수 지시를 지켰는지 스스로 점검해라. 특이사항이 정한 것보다 더 많이/적게 고르지 않았는지 반드시 재확인해라.":"";
+  var noteRuleTop=noteVal?"\n- ⚠️ 클라이언트 전용 특이사항(다른 모든 규칙보다 최우선, 아래 단락당 개수 제한보다도 우선): "+noteVal+"\n  이 특이사항은 두 종류일 수 있다.\n  (1) 범위·기준·개수 지시(예: \"문장 1개\", \"~까지만\"): 적힌 숫자를 정확히 지켜라. 절대 임의로 늘리거나 줄이지 마라.\n  (2) 조건부 규칙(예: \"OO라는 단어/표현이 들어간 문장은 항상 인용구(Q) 처리할 것\", \"가격 언급된 문장은 전부 배경색 넣을 것\" 등 특정 패턴이 나오면 무조건 적용하라는 규칙): 이런 규칙이 있으면, 줄 목록 전체를 처음부터 끝까지 한 줄씩 다시 훑으면서 그 패턴(단어/표현)이 들어있는 줄이나 문장을 전부 빠짐없이 찾아내서 지시된 서식(Q 또는 H)을 반드시 적용해라. 한두 군데만 적용하고 나머지를 빠뜨리면 틀린 것이다 — 원고 전체에서 해당 패턴이 몇 번 나오든 전부 적용해야 한다. 이 조건부 규칙으로 추가되는 Q/H 개수는 아래 꾸밈 정도(낮음/보통/높음)의 단락당 목표 개수와 별개이며, 목표 개수를 넘어서더라도 반드시 추가로 적용해라.\n  아래에 나오는 단락 정의, 개수 기준, 인용구 선택 방식 등 다른 규칙들은 이 특이사항이 다루지 않는 부분에서만 참고하고, 이 특이사항과 충돌하는 부분은 전부 무시해라.":"";
+  var noteRuleBottom=noteVal?"\n- 마지막으로 다시 한번: 위에서 준 클라이언트 특이사항(\""+noteVal+"\")을 지켰는지 스스로 점검해라. 그것이 개수 제한이었다면 더 많이/적게 고르지 않았는지, 조건부 규칙(특정 단어/표현이 들어간 문장에 항상 적용)이었다면 원고 전체에서 그 단어/표현이 나오는 줄을 하나라도 빠뜨리지 않았는지 줄 목록을 다시 한번 끝까지 확인해라.":"";
   var noQuote=!!!CUR.qon;
   var quoteNote=noQuote?"\n- 이번 원고는 인용구(Q) 기능을 쓰지 않는다. marks에는 절대 \"Q\" 타입을 넣지 마라(사용 가능한 타입은 \"H\"뿐이다). 원래 인용구로 고를 만큼 임팩트 있던 문장이 있으면, 대신 배경색(H)이나 bold/underline으로 강조해서 그 부분이 묻히지 않게 해라.":"";
   var prompt="다음은 블로그 원고를 줄 단위로 나눈 목록이다(번호: 내용). 원문은 절대 고치지 말고, 어떤 줄/문구에 어떤 표시를 붙일지만 정해서 JSON으로만 답하라. 설명이나 코드블록 없이 JSON 객체 하나만 출력해라.\n서식은 4종류이고 같은 줄/문구에 절대 겹치면 안 된다: 1) 인용구, 2) 배경색만(글자 스타일은 그대로), 3) 글자색+굵게, 4) 밑줄. 특히 배경색(H)과 글자색+굵게(bold)는 절대로 같은 문장이나 구절에 동시에 적용되면 안 된다 — 반드시 서로 다른 문장에 각각 하나씩만 적용해라.\n- 전체 원고에서 배경색(H)만 계속 반복해서 고르지 마라. bold와 밑줄(underline)도 배경색만큼, 혹은 그보다 더 많이 사용해서 서식 종류를 다양하게 섞어야 한다. 배경색이 절반을 넘게 쓰이면 안 된다.\n- 꾸밀 곳을 고를 때는 항상 문장 단위로 판단해라(여기서 \"문장\"은 줄바꿈이 아니라 마침표.물음표.느낌표로 끝나는 실제 문장을 뜻한다 — 아래에서 더 자세히 설명한다). 단락 전체를 보고 대표 문장 한두 개만 고르는 게 아니라, 그 단락에 있는 문장들을 처음부터 끝까지 하나씩 순서대로 짚어가면서 \"이 문장을 꾸밀까, 어떤 스타일로 꾸밀까\"를 각각 정해야 한다. 아래 꾸밈 정도별 목표 개수는 이렇게 문장 단위로 훑어야만 채울 수 있는 양이니, 단락을 훑지 않고 대충 몇 개만 고르지 마라.\n형식: {\"marks\":[{\"i\":줄번호,\"t\":\"Q\"|\"H\"}],\"bold\":[\"강조할 문구\",...],\"underline\":[\"밑줄 칠 문구\",...]}\n규칙:"+noteRuleTop+"\n- '단락(문단)'의 정의: 원고에서 완전히 빈 줄(내용이 하나도 없는 줄)로 나뉘는 덩어리 하나가 '한 단락'이다. 원고 맨 앞의 \"0\"이나 맨 뒤의 \"56\"처럼 숫자만 있는 줄이 어쩌다 하나씩 보이더라도, 그걸 기준으로 단락을 나누지 마라 — 이 원고들은 번호가 거의 없거나 듬성듬성 있을 수 있고, 실제 단락 구분은 오직 빈 줄이다. 즉 원고 전체에서 빈 줄과 빈 줄 사이에 있는 연속된 텍스트 줄들을 각각 하나의 독립된 단락으로 보고, 그 단락 하나하나마다 아래 꾸밈 정도 기준 개수를 채워야 한다. 원고 전체를 하나의 큰 덩어리로 보고 개수를 몰아서 채우면 절대 안 되고, 빈 줄로 나뉜 짧은 단락 하나하나에 각각 따로 채워야 한다.\n- 가장 중요한 원칙: 줄바꿈을 문장이 끝났다는 신호로 착각하지 마라. 문장이 끝났는지는 오직 마침표(.)·물음표(?)·느낌표(!) 같은 문장부호로만 판단한다. 어떤 줄이 이런 문장부호 없이 끝나 있으면, 그 문장은 다음 줄(들)로 계속 이어지는 것이다. 전체 원고를 먼저 흐름대로 읽으면서 어디서부터 어디까지가 실제로 하나의 문장인지(마침표 기준) 파악한 다음에, 그 단위로 꾸밀 곳과 문장 개수를 판단해라. 줄 단위를 문장 단위로 착각하면 개수 계산도, 문장 중간을 끊어 꾸미는 것도 전부 틀리게 된다.\n- 원문은 한 문장이 여러 줄로 개행되어 있는 경우가 매우 많다(예: \"방문과 문틀도\" 다음 줄에 \"집의 분위기에 생각보다 큰 영향을 줍니다.\"가 오면 이 두 줄은 사실 한 문장이다). 인용구(Q)나 배경색(H)으로 고를 때는 반드시 그 문장(또는 이어지는 여러 문장)에 속한 줄 전체를 처음부터 끝까지 빠짐없이 포함해라. 문장 중간에서 끊거나 한 문장의 일부 줄만 고르지 마라.\n- bold/underline도 마찬가지다. 절대로 문장의 마지막 줄이나 일부 조각(예: \"있습니다.\", \"발생할 수 있습니다.\" 같은 짧은 꼬리 부분)만 골라서 꾸미면 안 된다. 반드시 그 문장이 시작하는 줄부터 끝나는 줄까지 전부 찾아서 bold나 underline 배열에 각 줄의 전체 텍스트를 하나씩 전부 넣어라. 예를 들어 원문이 다음처럼 4줄에 걸쳐 있다면(\"이외에도\" / \"수입인지와\" / \"중개수수료 등이\" / \"별도로 발생할 수 있습니다.\") 이 문장을 밑줄로 꾸미기로 했다면 underline 배열에 \"이외에도\", \"수입인지와\", \"중개수수료 등이\", \"별도로 발생할 수 있습니다.\" 이렇게 4개 항목을 전부 넣어야 한다. 마지막 줄 하나만 넣고 앞의 세 줄을 빠뜨리는 것은 완전히 틀린 것이다.\n"+quoteNote+"\n- 여러 줄에 걸쳐 이어지는 한 문장을 꾸밀 때는, 쉼표로 여러 항목이 나열되다가 하나의 술어로 끝나는 문장(예: \"A와 B, C까지 함께 살펴보는 것이 중요합니다\"처럼 결국 하나의 흐름/하나의 주장인 문장)이면 절대로 항목마다 다른 색을 칠하지 마라. 그런 문장은 처음부터 끝까지 전체를 하나의 구절로 보고 스타일 하나만 통일해서 적용해라(그 문장에 속한 모든 줄을 bold나 underline 목록에 각각 같은 스타일로 넣으면 된다). 한 문장 안에서 앞부분엔 배경색, 뒷부분엔 밑줄처럼 서로 다른 스타일을 섞어 칠하는 것은 절대 하지 마라 — 이렇게 하면 원고가 지저분해 보인다.\n- 정말로 서로 독립적인 두 문장이 원문 상 한 줄에 붙어 있는 경우(예: \"그렇습니다. 이건 별도로 확인이 필요합니다.\"처럼 마침표로 명확히 나뉘는 두 문장이 한 줄에 있는 경우)에만 그 줄 안에서 각 문장에 서로 다른 스타일을 따로 적용할 수 있다. 이 경우를 제외하면 한 문장 = 스타일 하나로 원칙을 지켜라.\n- bold와 underline은 단어 한두 개짜리 짧은 토막이 아니라, 의미가 통하는 구(句) 단위나 문장 전체 길이로 고른다. 대략 8~25자 정도의 자연스러운 구절 단위로 고르는 걸 기본으로 하고, 문장 전체를 강조하는 것도 괜찮다.\n"+decoRule+"\n- bold와 underline은 t가 없는(Q도 H도 아닌) 일반 줄에 나오는 구절만 고른다. Q나 H로 고른 줄의 구절은 절대 bold나 underline에 넣지 마라.\n- 다음 단어는 이미 자동으로 색이 입혀지므로 그 단어 자체를 bold나 underline 문구로 통째로 고르지는 마라: "+((CUR.kw||"")||"없음")+". 하지만 이 단어가 들어있는 문장이나 줄이라고 해서 나머지 부분까지 꾸미지 않고 건너뛰면 안 된다 — 그 단어를 뺀 나머지 부분, 또는 다른 문장은 평소처럼 적극적으로 bold/underline/인용구/배경색으로 꾸며라. 자동 강조 단어의 존재가 전체 꾸밈 개수(단락당 목표치)를 줄이는 이유가 되면 안 된다.\n- 매우 중요: 위에서 정의한 단락(빈 줄로 구분된 덩어리)을 원고 처음부터 끝까지 하나도 빠짐없이 전부 살펴봐라. 특정 단락 하나를 통째로 건너뛰고 꾸밈이 하나도 없이 남겨두는 일이 있으면 안 된다. 각 단락마다 위 꾸밈 정도 기준 개수를 채웠는지 스스로 확인한 다음 다음 단락으로 넘어가라. 원고가 길어서 단락이 10개, 20개가 넘어가더라도 예외 없이 전부 다 확인해라.\n- \"[사진 26~34]\"처럼 대괄호로 된 사진/이미지 자리 표시 줄은 그 자체로 하나의 짧은 '단락'(앞뒤가 빈 줄로 둘러싸인 덩어리)을 이루는 경우가 많다. 이런 사진 표시 줄만 있는 단락은 꾸밀 실제 문장이 없으니 건너뛰어도 된다(개수에서 제외). 그 대신 바로 앞 단락과 바로 뒤 단락은 각각 독립된 단락이니, 사진 표시 줄이 있다고 앞뒤 단락을 하나로 합치거나 개수를 줄이지 말고 각각 정상적으로 목표 개수를 채워라."+noteRuleBottom+"\n\n줄 목록:\n"+numbered.join("\n");
@@ -290,6 +307,151 @@ function qAll(root,name){
   for(var i=0;i<all.length;i++){if(all[i].localName===name)out.push(all[i])}
   return out;
 }
+function cfbParse(buf){
+  var dv=new DataView(buf);
+  var sectorShift=dv.getUint16(30,true);
+  var sectorSize=1<<sectorShift;
+  var miniSectorShift=dv.getUint16(32,true);
+  var miniSectorSize=1<<miniSectorShift;
+  var firstDirSector=dv.getInt32(48,true);
+  var miniStreamCutoff=dv.getUint32(56,true);
+  var firstMiniFatSector=dv.getInt32(60,true);
+  var numMiniFatSectors=dv.getUint32(64,true);
+  var firstDifatSector=dv.getInt32(68,true);
+  var numDifatSectors=dv.getUint32(72,true);
+  var difat=[];
+  for(var i=0;i<109;i++){
+    var v=dv.getInt32(76+i*4,true);
+    if(v>=0)difat.push(v);
+  }
+  var sec=firstDifatSector,guard=0;
+  while(sec>=0&&guard<numDifatSectors+2){
+    var off=512+sec*sectorSize;
+    for(var j=0;j<sectorSize/4-1;j++){
+      var v2=dv.getInt32(off+j*4,true);
+      if(v2>=0)difat.push(v2);
+    }
+    sec=dv.getInt32(off+(sectorSize/4-1)*4,true);
+    guard++;
+  }
+  var fat=[];
+  difat.forEach(function(fatSecId){
+    var off=512+fatSecId*sectorSize;
+    for(var j=0;j<sectorSize/4;j++)fat.push(dv.getInt32(off+j*4,true));
+  });
+  function sectorOffset(id){return 512+id*sectorSize}
+  function readChain(startSector,size){
+    var chunks=[],s=startSector,total=0,g=0;
+    while(s>=0&&g<1000000){
+      chunks.push(new Uint8Array(buf,sectorOffset(s),sectorSize));
+      total+=sectorSize;
+      s=fat[s];
+      g++;
+      if(size!=null&&total>=size)break;
+    }
+    var out=new Uint8Array(size!=null?size:total),pos=0;
+    for(var k=0;k<chunks.length&&pos<out.length;k++){
+      var c=chunks[k],n=Math.min(c.length,out.length-pos);
+      out.set(c.subarray(0,n),pos);pos+=n;
+    }
+    return out;
+  }
+  var dirBytes=readChain(firstDirSector,null);
+  var numEntries=Math.floor(dirBytes.length/128);
+  var entries=[];
+  var ddv=new DataView(dirBytes.buffer,dirBytes.byteOffset,dirBytes.byteLength);
+  for(var e=0;e<numEntries;e++){
+    var base=e*128;
+    var type=dirBytes[base+66];
+    if(type===0)continue;
+    var nameLen=ddv.getUint16(base+64,true);
+    var nameChars=[];
+    for(var c=0;c<Math.max(0,(nameLen>>1)-1);c++)nameChars.push(String.fromCharCode(ddv.getUint16(base+c*2,true)));
+    var startSec=ddv.getInt32(base+116,true);
+    var sizeLow=ddv.getUint32(base+120,true);
+    var sizeHigh=ddv.getUint32(base+124,true);
+    entries.push({name:nameChars.join(""),type:type,start:startSec,size:sizeHigh*4294967296+sizeLow});
+  }
+  var root=entries.filter(function(en){return en.type===5})[0];
+  var miniFat=[];
+  if(firstMiniFatSector>=0&&numMiniFatSectors>0){
+    var mb=readChain(firstMiniFatSector,null);
+    var mdv=new DataView(mb.buffer,mb.byteOffset,mb.byteLength);
+    for(var m=0;m<Math.floor(mb.length/4);m++)miniFat.push(mdv.getInt32(m*4,true));
+  }
+  function readMiniChain(startSector,size){
+    var rootData=readChain(root.start,null);
+    var chunks=[],s=startSector,total=0,g=0;
+    while(s>=0&&g<1000000){
+      var off=s*miniSectorSize;
+      chunks.push(rootData.subarray(off,off+miniSectorSize));
+      total+=miniSectorSize;
+      s=miniFat[s];
+      g++;
+      if(size!=null&&total>=size)break;
+    }
+    var out=new Uint8Array(size!=null?size:total),pos=0;
+    for(var k=0;k<chunks.length&&pos<out.length;k++){
+      var c=chunks[k],n=Math.min(c.length,out.length-pos);
+      out.set(c.subarray(0,n),pos);pos+=n;
+    }
+    return out;
+  }
+  function readStream(entry){
+    if(root&&entry!==root&&entry.size<miniStreamCutoff)return readMiniChain(entry.start,entry.size);
+    return readChain(entry.start,entry.size);
+  }
+  return{entries:entries,readStream:readStream};
+}
+var HWP_CHAR1={0:"",10:"\n",13:"\n",24:"-",30:" ",31:" "};
+function parseHwpParaText(bytes){
+  var dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  var n=Math.floor(bytes.length/2);
+  var out=[],i=0;
+  while(i<n){
+    var code=dv.getUint16(i*2,true);
+    if(code<=31){
+      if(HWP_CHAR1.hasOwnProperty(code)){out.push(HWP_CHAR1[code]);i+=1;continue}
+      if(code===9)out.push("\t");
+      i+=8;
+      continue;
+    }
+    out.push(String.fromCharCode(code));
+    i+=1;
+  }
+  return out.join("");
+}
+async function parseHwpFile(file){
+  var buf=await file.arrayBuffer();
+  var cfb=cfbParse(buf);
+  var fh=cfb.entries.filter(function(e){return e.name==="FileHeader"})[0];
+  if(!fh)throw new Error("hwp 파일 구조를 인식할 수 없어요(암호화되었거나 손상된 파일일 수 있어요)");
+  var fhBytes=cfb.readStream(fh);
+  var fhDv=new DataView(fhBytes.buffer,fhBytes.byteOffset,fhBytes.byteLength);
+  var flags=fhDv.getUint32(36,true);
+  var compressed=(flags&1)!==0;
+  var sections=cfb.entries.filter(function(e){return /^Section\d+$/.test(e.name)});
+  sections.sort(function(a,b){return parseInt(a.name.replace(/\D/g,""),10)-parseInt(b.name.replace(/\D/g,""),10)});
+  if(!sections.length)throw new Error("본문 구조를 찾지 못했어요");
+  if(typeof pako==="undefined"&&compressed)throw new Error("압축 해제 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해주세요.");
+  var paras=[];
+  sections.forEach(function(entry){
+    var raw=cfb.readStream(entry);
+    var data=compressed?pako.inflateRaw(raw):raw;
+    var dv=new DataView(data.buffer,data.byteOffset,data.byteLength);
+    var pos=0,len=data.length;
+    while(pos+4<=len){
+      var header=dv.getUint32(pos,true);pos+=4;
+      var tagId=header%1024;
+      var size=Math.floor(header/1048576)%4096;
+      if(size===4095){size=dv.getUint32(pos,true);pos+=4}
+      if(pos+size>len)break;
+      if(tagId===67)paras.push(parseHwpParaText(data.subarray(pos,pos+size)));
+      pos+=size;
+    }
+  });
+  return paras.join("\n").replace(/\n{3,}/g,"\n\n");
+}
 async function parseHwpxFile(file){
   var buf=await file.arrayBuffer();
   var zip=await JSZip.loadAsync(buf);
@@ -339,6 +501,27 @@ async function parseHwpxFile(file){
     });
   }
   return lines.join("\n");
+}
+function readTextFileSmart(file){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var buf=e.target.result;
+      try{
+        var utf8=new TextDecoder("utf-8",{fatal:false}).decode(buf);
+        if(utf8.indexOf(String.fromCharCode(0xFFFD))>=0){
+          try{
+            var euckr=new TextDecoder("euc-kr").decode(buf);
+            resolve(euckr);
+            return;
+          }catch(e2){}
+        }
+        resolve(utf8);
+      }catch(e3){reject(e3)}
+    };
+    reader.onerror=function(){reject(reader.error)};
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 /* ================= 화면 상태 ================= */
@@ -493,12 +676,12 @@ function addItem(name,text){
   var sp=splitText(text);it.title=guessTitle(sp.meta,name);
   ITEMS.push(it);if(!SEL)SEL=it.id;renderItems();renderSelected();
 }
-async function readFile(f){
-  if(/\.hwpx$/i.test(f.name))return await parseHwpxFile(f);
-  if(/\.hwp$/i.test(f.name))throw new Error("구버전 .hwp는 지원하지 않아요. hwpx로 저장해주세요.");
-  var buf=await f.arrayBuffer();
-  try{return new TextDecoder("utf-8",{fatal:true}).decode(buf).replace(/^﻿/,"")}
-  catch(e){return new TextDecoder("euc-kr").decode(buf)}
+async function readFile(f){  // 기존 웹 도구의 handleUploadedFile과 같은 방식
+  var n=(f.name||"").toLowerCase();
+  if(n.endsWith(".hwpx"))return await parseHwpxFile(f);
+  if(n.endsWith(".hwp"))return (await parseHwpFile(f)).trim();
+  if(n.endsWith(".txt"))return (await readTextFileSmart(f)).replace(/^\uFEFF/,"");
+  throw new Error(".txt, .hwpx, .hwp 파일만 올릴 수 있어요.");
 }
 async function addFiles(files){
   for(var i=0;i<files.length;i++){
@@ -553,7 +736,9 @@ function nn(o){var r={};Object.keys(o||{}).forEach(function(k){if(o[k]!==null&&o
 function styleFor(it){return it.preset===currentName?Object.assign({},nn(PRESETS[it.preset]),get()):Object.assign({},DEFAULTS,nn(PRESETS[it.preset]))}
 function rebuildHTML(it){
   var c=styleFor(it);
-  it.html=renderHTML(c,it.body,it.tagsFromText?null:(SETTINGS.tagMode==="dialog"?null:it.tags));
+  // 기존 웹 도구처럼 기본은 본문에 태그를 넣지 않음 (설정에서 '본문 맨 아래'를 고른 경우만)
+  var inBody=SETTINGS.tagMode==="body"||SETTINGS.tagMode==="both";
+  it.html=renderHTML(c,it.body,inBody?it.tags:null);
 }
 async function decorate(it){
   var c=styleFor(it);CUR=c;
@@ -636,7 +821,7 @@ function openSettings(){
   $("setErr").textContent="";$("gkey").value="";
   $("gkey").placeholder=SETTINGS.hasGeminiKey?"저장됨 (바꿀 때만 입력)":"AIza로 시작하는 키";
   var m=$("model");m.innerHTML="";var o=document.createElement("option");o.value=o.textContent=SETTINGS.model||"gemini-flash-latest";m.appendChild(o);
-  $("tagMode").value=SETTINGS.tagMode||"both";$("browser").value=SETTINGS.browser||"auto";
+  $("tagMode").value=SETTINGS.tagMode||"dialog";$("browser").value=SETTINGS.browser||"auto";
   $("setOv").classList.add("on");
 }
 $("settingsBtn").onclick=openSettings;

@@ -325,7 +325,7 @@ class Store:
         s = (self.data or {}).get("settings", {})
         return {"model": s.get("model", "gemini-flash-latest"), "hasGeminiKey": bool(s.get("geminiKey")),
                 "browser": s.get("browser", "auto"), "previewBeforeUpload": s.get("previewBeforeUpload", False),
-                "tagMode": s.get("tagMode", "both")}
+                "tagMode": s.get("tagMode", "dialog")}
 
     def gemini_key(self) -> str | None:
         self.refresh()

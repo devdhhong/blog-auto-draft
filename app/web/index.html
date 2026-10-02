@@ -131,7 +131,7 @@ a{color:var(--ac)}
      <label>인용구 꾸밈 사용<input type="checkbox" id="qon" checked></label>
      <label>인용구 크기(px)<input type="number" id="qs" value="26" style="max-width:70px"></label>
      <label>스타일 레벨<select id="deco"><option value="low">낮음</option><option value="mid" selected>보통</option><option value="high">높음</option></select></label>
-     <label style="grid-column:1/-1"><span style="flex:none">자동 인용구처리 문자</span><input type="text" id="qch" value="<,>" style="flex:1;max-width:none"></label>
+     <label style="grid-column:1/-1"><span style="flex:none">인용구 처리</span><input type="text" id="qch" value="<,>" style="flex:1;max-width:none"></label>
      <label style="grid-column:1/-1"><span style="flex:none">자동 강조 단어</span><input type="text" id="kw" placeholder="업체명, 지역명 (쉼표)" style="flex:1;max-width:none"></label>
     </div>
     <div class="colorcols" style="margin-top:12px">
@@ -150,8 +150,8 @@ a{color:var(--ac)}
  <div class="step" id="step3">
   <div class="step-head"><span class="step-num">3</span><span class="step-title">원고 넣고 실행</span></div>
   <div class="card">
-   <div class="drop" id="drop">한글(.hwpx)·텍스트(.txt) 원고 파일을 여기에 끌어다 놓거나 <b>클릭해서 선택</b>하세요 (여러 개 가능)</div>
-   <input type="file" id="fileIn" accept=".hwpx,.txt" multiple style="display:none">
+   <div class="drop" id="drop">📄 <b>.txt</b>, <b>.hwpx</b>, <b>.hwp</b> 원고 파일을 여기에 끌어다 놓거나 <b>클릭해서 선택</b>하세요 (여러 개 가능)</div>
+   <input type="file" id="fileIn" accept=".hwpx,.txt,.hwp" multiple style="display:none">
    <details style="margin-top:10px"><summary class="mut" style="cursor:pointer">직접 붙여넣기</summary>
     <textarea id="pasteIn" style="height:140px;margin-top:6px" placeholder="원고를 여기에 붙여넣고 [목록에 추가]"></textarea>
     <div class="row" style="margin-top:6px"><button class="g" id="pasteAdd">목록에 추가</button></div>
@@ -163,7 +163,7 @@ a{color:var(--ac)}
     <button class="g" id="clearDone">완료 항목 지우기</button>
    </div>
    <label style="justify-content:flex-start;margin-top:10px"><input type="checkbox" id="previewFirst"> 업로드 전에 미리보기로 확인하고 직접 [업로드] 누르기</label>
-   <p class="mut">구버전 .hwp는 읽을 수 없어요. 한글에서 "다른 이름으로 저장 → hwpx"로 저장해주세요.</p>
+   <p class="mut">.hwpx는 볼드·밑줄 서식까지 그대로 읽어요. .txt와 구버전 .hwp는 글자 내용만 불러와요(hwp는 표·이미지·각주가 있으면 순서가 꼬일 수 있으니 미리보기로 확인해 주세요).</p>
   </div>
  </div>
  </div>
@@ -223,8 +223,8 @@ a{color:var(--ac)}
    <p class="mut"><a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> 에서 구글 계정으로 로그인 → "API 키 만들기". 카드 등록 없이 무료 등급으로 쓸 수 있어요(하루 사용량 제한 있음). 무료 등급은 입력한 원고가 구글 모델 개선에 쓰일 수 있어요.</p></div>
   <div class="field"><div>AI 모델</div><div class="row"><select id="model" style="max-width:none;flex:1"></select><button class="g" id="loadModels">목록 불러오기</button></div></div>
   <div class="field"><div>해시태그 넣는 방식</div><select id="tagMode" style="max-width:none;width:100%">
-   <option value="both">발행 설정 태그칸 + 본문 맨 아래(AI가 만든 경우)</option>
-   <option value="dialog">발행 설정 태그칸에만</option>
+   <option value="dialog">발행 설정 태그칸에만 (기본)</option>
+   <option value="both">발행 설정 태그칸 + 본문 맨 아래</option>
    <option value="body">본문 맨 아래에만</option></select></div>
   <div class="field"><div>네이버 작업용 브라우저</div><select id="browser"><option value="auto">자동</option><option value="edge">Edge</option><option value="chrome">Chrome</option></select></div>
   <div class="field"><div>동기화 폴더</div><div class="mut" id="syncPath" style="word-break:break-all"></div>
@@ -237,6 +237,7 @@ a{color:var(--ac)}
 
 <div class="toast" id="toast"></div>
 <script src="/jszip.min.js"></script>
+<script src="/pako.min.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
