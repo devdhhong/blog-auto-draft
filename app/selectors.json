@@ -5,9 +5,10 @@
   "로그인_아이디칸": ["#id", "input[name='id']"],
   "로그인_비번칸": ["#pw", "input[name='pw']"],
   "로그인_상태유지": ["#keep", "label[for='keep']"],
-  "로그인_버튼": ["#log\\.login", "button[type='submit']", ".btn_login"],
+  "로그인_버튼": ["#log\\.login", "button.btn_login", "button[type='submit']", "button:text-is('로그인')"],
   "로그인_확인_쿠키": "NID_AUT",
   "로그인_쿠키_주소": "https://naver.com",
+  "로그인_화면_주소": ["nid.naver.com/nidlogin", "nid.naver.com/login"],
 
   "글쓰기_주소": "https://blog.naver.com/{blogId}?Redirect=Write&",
   "에디터_프레임": "mainFrame",

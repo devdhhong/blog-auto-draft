@@ -111,7 +111,7 @@ class Naver:
             try:
                 self.ctx = self.pw.chromium.launch_persistent_context(
                     os.path.join(data_dir(), "profiles", f"{safe}-{ch}"),
-                    channel=ch, headless=False, no_viewport=True, locale="ko-KR",
+                    channel=ch, headless=False, no_viewport=True, locale="ko-KR", chromium_sandbox=not os.environ.get("NBH_TEST_CHROMIUM"),
                     args=["--start-maximized", "--disable-blink-features=AutomationControlled"],
                     ignore_default_args=["--enable-automation"],
                     permissions=["clipboard-read", "clipboard-write"],
@@ -204,14 +204,19 @@ class Naver:
     def logged_in_as(self) -> bool:
         return any(c["name"] == self.sel["로그인_확인_쿠키"] for c in self.ctx.cookies(self.sel.get("로그인_쿠키_주소", "https://naver.com")))
 
-    def login(self, naver_id: str, pw: str):
+    def on_login_page(self) -> bool:
+        u = (self.page.url or "").lower()
+        return any(x in u for x in self.sel.get("로그인_화면_주소", ["nid.naver.com/nidlogin", "nid.naver.com/login"]))
+
+    def login(self, naver_id: str, pw: str, force: bool = False):
         self.open_for(naver_id)
-        if self.logged_in_as():
+        if not force and self.logged_in_as():
             self.log("  로그인 상태 유지 중")
             return
-        self.log("  네이버 로그인 중...")
+        self.log("  네이버 로그인 중..." if not force else "  로그인이 풀려 있어 다시 로그인합니다...")
         p = self.page
-        p.goto(self.sel["로그인_주소"], wait_until="domcontentloaded")
+        if not self.on_login_page():
+            p.goto(self.sel["로그인_주소"], wait_until="domcontentloaded")
         idbox, pwbox = self.find(p, "로그인_아이디칸"), self.find(p, "로그인_비번칸")
         if not idbox or not pwbox:
             self.shot("로그인화면")
@@ -240,23 +245,34 @@ class Naver:
         end, warned = time.time() + 300, False
         while time.time() < end:
             self.check_stop()
-            if self.logged_in_as():
+            time.sleep(1)
+            # 쿠키가 생기고 로그인 화면을 벗어나야 진짜 성공
+            if self.logged_in_as() and not self.on_login_page():
                 self.log("  로그인 성공")
                 return
-            if not warned and time.time() > end - 290:
+            if not warned and time.time() > end - 292:
                 self.log("  ※ 자동입력 방지 문자·기기 인증 등이 뜨면 열린 브라우저에서 직접 완료해 주세요 (최대 5분 대기)")
                 warned = True
-            time.sleep(1)
         self.shot("로그인실패")
         raise RuntimeError("로그인하지 못했습니다. 아이디/비밀번호 또는 추가 인증을 확인하세요.")
 
     # ------------------------------------------------------------ 에디터
-    def editor(self, blog_id: str):
+    def editor(self, account: dict):
         p = self.page
-        p.goto(self.sel["글쓰기_주소"].format(blogId=blog_id), wait_until="domcontentloaded")
-        end = time.time() + 30
+        url = self.sel["글쓰기_주소"].format(blogId=account["blogId"])
+        p.goto(url, wait_until="domcontentloaded")
+        end, relogged = time.time() + 30, False
         while time.time() < end:
             self.check_stop()
+            if self.on_login_page():
+                if relogged:
+                    self.shot("로그인반복")
+                    raise RuntimeError("다시 로그인해도 글쓰기 화면으로 가지 못했습니다. 아이디/비밀번호를 확인하세요.")
+                self.login(account["id"], account["pw"], force=True)
+                relogged = True
+                p.goto(url, wait_until="domcontentloaded")
+                end = time.time() + 30
+                continue
             frames = [f for f in p.frames if f.name == self.sel["에디터_프레임"]] + [p.main_frame]
             for f in frames:
                 try:
@@ -358,7 +374,7 @@ class Naver:
     # ------------------------------------------------------------ 작업 하나
     def post(self, account: dict, title: str, html: str, plain: str, tags: list[str], tag_mode: str):
         self.login(account["id"], account["pw"])
-        fr = self.editor(account["blogId"])
+        fr = self.editor(account)
         time.sleep(1.5)
         self.dismiss_popups(fr)
         t = self.find(fr, "제목칸")
